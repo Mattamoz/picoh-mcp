@@ -61,14 +61,23 @@ class _Schedule:
 
 
 class IdleLoop:
-    def __init__(self, emb: Embodiment, persona: IdlePersona | None = None) -> None:
+    def __init__(
+        self,
+        emb: Embodiment,
+        persona: IdlePersona | None = None,
+        *,
+        wake_duration_s: float = 30.0,
+    ) -> None:
         self.emb = emb
         self._persona = persona or IdlePersona()
         self.energy = 6.0
+        self.wake_duration_s = max(0.0, float(wake_duration_s))
         self._inhibit_until = 0.0
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._schedule = _Schedule()
+        self._wake_until = time.time() + self.wake_duration_s
+        self._sleeping = False
         # current "neutral" gaze target — saccades pick small offsets from this
         self._center = (5.0, 5.0, 5.0)  # nod, turn, tilt (HEADNOD/HEADTURN/EYETILT)
 
@@ -82,14 +91,28 @@ class IdleLoop:
     def set_center(self, nod: float = 5.0, turn: float = 5.0, tilt: float = 5.0) -> None:
         self._center = (nod, turn, tilt)
 
+    @property
+    def is_sleeping(self) -> bool:
+        return self._sleeping
+
     def inhibit(self, seconds: float = 0.6) -> None:
         """Suppress idle motions for ``seconds`` while an app is moving Picoh."""
         self._inhibit_until = max(self._inhibit_until, time.time() + seconds)
+
+    def wake(self, seconds: float | None = None) -> None:
+        """Wake the loop for a short window of active motion after a command."""
+        duration = self.wake_duration_s if seconds is None else max(0.0, float(seconds))
+        self._wake_until = max(self._wake_until, time.time() + duration)
+        self._sleeping = False
+        self._schedule = _Schedule()
 
     def start(self) -> "IdleLoop":
         if self._thread and self._thread.is_alive():
             return self
         self._stop.clear()
+        self._wake_until = time.time() + self.wake_duration_s
+        self._sleeping = False
+        self._inhibit_until = 0.0
         self._thread = threading.Thread(target=self._run, daemon=True, name="idle-loop")
         self._thread.start()
         return self
@@ -100,10 +123,35 @@ class IdleLoop:
             self._thread.join(timeout=1.0)
 
     # ----- internal ------------------------------------------------------ #
+    def _enter_sleep(self) -> None:
+        self._sleeping = True
+        try:
+            self.emb.move("HEADNOD", 2.0, 2)
+            self.emb.move("HEADTURN", 5.0, 2)
+            self.emb.move("EYETURN", 5.0, 2)
+            self.emb.move("EYETILT", 5.0, 2)
+            self.emb.move("LIDBLINK", 0.0, 10)
+        except Exception:
+            pass
+
+        # detach all the motors after a short delay to prevent wear.  They will reattach next time they move
+        time.sleep(0.5)
+        try:
+            self.emb.close()
+        except Exception:
+            pass
+
     def _run(self) -> None:
         t0 = time.time()
         while not self._stop.is_set():
             now = time.time()
+            if self._sleeping:
+                time.sleep(0.1)
+                continue
+            if now >= self._wake_until:
+                self._enter_sleep()
+                time.sleep(0.1)
+                continue
             if now < self._inhibit_until:
                 time.sleep(0.05)
                 continue

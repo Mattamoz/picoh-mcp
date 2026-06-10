@@ -53,6 +53,7 @@ def _build_server():
     @mcp.tool()
     def set_eyes(left: str, right: str) -> str:
         f"""Set Picoh's left and right eye LED shapes. Valid: {', '.join(EYE_SHAPES)}."""
+        idle.wake()
         idle.inhibit(0.5)
         emb.set_eyes(left, right)
         return "ok"
@@ -60,6 +61,7 @@ def _build_server():
     @mcp.tool()
     def base_colour(r: int, g: int, b: int) -> str:
         """Set Picoh's RGB base light (each channel 0-10)."""
+        idle.wake()
         emb.base_colour(r, g, b)
         return "ok"
 
@@ -67,6 +69,7 @@ def _build_server():
     def head_pose(nod: float | None = None, turn: float | None = None,
                   tilt: float | None = None, speed: float = 5) -> str:
         """Pose Picoh's head. nod/turn/tilt each 0-10. speed 0-10."""
+        idle.wake()
         idle.inhibit(0.6)
         emb.head_pose(nod=nod, turn=turn, tilt=tilt, speed=speed)
         return "ok"
@@ -74,12 +77,15 @@ def _build_server():
     @mcp.tool()
     def look(x: float, y: float, speed: float = 8) -> str:
         """Saccade — eyes only — to position (x,y) each 0-10."""
+        idle.wake()
+        idle.inhibit(0.5)
         emb.look(x, y, speed)
         return "ok"
 
     @mcp.tool()
     def gesture(name: str) -> str:
         f"""Run a named composite gesture. Valid: {', '.join(GESTURE_NAMES)}."""
+        idle.wake()
         idle.inhibit(1.5)
         perform(emb, name)
         return "ok"
@@ -87,6 +93,7 @@ def _build_server():
     @mcp.tool()
     def move(motor: str, pos: float, speed: float = 5) -> str:
         f"""Low-level motor move. motor in {', '.join(MOTORS)}, pos/speed 0-10."""
+        idle.wake()
         idle.inhibit(0.6)
         emb.move(motor, pos, speed)
         return "ok"
@@ -94,13 +101,16 @@ def _build_server():
     @mcp.tool()
     def say(text: str) -> str:
         """Speak ``text`` with built-in lip-sync. Blocks until done."""
+        idle.wake()
         idle.inhibit(max(1.0, 0.4 * len(text.split())))
-        emb.say(text)
+        # Try stopping blocking so that movement can continue.  As the picoh library starts a thread for lipsynch this should be fine although it may fail if a second phrase is sent
+        emb.say(text, until_done=False, lip_sync=True)
         return "ok"
 
     @mcp.tool()
     def play_sound(name: str) -> str:
         """Play a WAV from picohData/Sounds (e.g. fanfare, ohbot)."""
+        idle.wake()
         emb.play_sound(name)
         return "ok"
 
@@ -112,6 +122,7 @@ def _build_server():
     @mcp.tool()
     def reset() -> str:
         """Return Picoh to a neutral resting pose."""
+        idle.wake()
         idle.inhibit(2.0)
         emb.reset()
         return "ok"

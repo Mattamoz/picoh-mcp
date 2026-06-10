@@ -40,3 +40,50 @@ def test_inhibit_blocks_moves_for_window():
     time.sleep(0.7)  # past the inhibit window — should fire again
     loop.stop()
     assert len(backend.log) > after_inhibit
+
+
+def test_idle_loop_enters_sleep_mode_after_startup_window():
+    backend = MockPicoh(verbose=False)
+    emb = Embodiment(backend, mocked=True)
+    loop = IdleLoop(emb, wake_duration_s=0.2)
+    loop.start()
+    try:
+        time.sleep(0.35)
+    finally:
+        loop.stop()
+
+    assert loop.is_sleeping
+    move_ops = [op for op in backend.log if op[0] == "move"]
+    assert move_ops
+    time.sleep(0.2)
+    assert len([op for op in backend.log if op[0] == "move"]) == len(move_ops)
+
+
+def test_idle_loop_wakes_on_command_then_returns_to_sleep():
+    backend = MockPicoh(verbose=False)
+    emb = Embodiment(backend, mocked=True)
+    loop = IdleLoop(emb, wake_duration_s=0.2)
+    loop.start()
+    try:
+        time.sleep(0.35)
+        loop.wake()
+        time.sleep(0.1)
+        assert not loop.is_sleeping
+        time.sleep(0.25)
+    finally:
+        loop.stop()
+
+    assert loop.is_sleeping
+
+
+def test_idle_loop_closes_backend_when_entering_sleep():
+    backend = MockPicoh(verbose=False)
+    emb = Embodiment(backend, mocked=True)
+    loop = IdleLoop(emb, wake_duration_s=0.1)
+    loop.start()
+    try:
+        time.sleep(0.25)
+    finally:
+        loop.stop()
+
+    assert any(op[0] == "close" for op in backend.log)

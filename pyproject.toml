@@ -24,17 +24,17 @@ classifiers = [
   "Topic :: Multimedia :: Sound/Audio :: Speech",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-
-[project.urls]
-Homepage      = "https://github.com/chrismeah/picoh-ai"
-Repository    = "https://github.com/chrismeah/picoh-ai"
-Issues        = "https://github.com/chrismeah/picoh-ai/issues"
-"Ohbot Picoh" = "https://www.ohbot.co.uk/picoh.html"
-
 dependencies = [
   # core config / env (no native deps, works on any Python)
   "python-dotenv>=1.0.0",
 ]
+
+[project.urls]
+Homepage      = "https://github.com/cwissy/picoh-mcp"
+Repository    = "https://github.com/cwissy/picoh-mcp"
+Issues        = "https://github.com/cwissy/picoh-mcp/issues"
+"Ohbot Picoh" = "https://www.ohbot.co.uk/picoh.html"
+
 
 [project.optional-dependencies]
 # The actual Picoh hardware driver. Pulls in a transitive ``playsound``
